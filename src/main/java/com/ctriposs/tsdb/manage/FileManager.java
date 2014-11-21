@@ -8,12 +8,13 @@ import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicLong;
 
 import com.ctriposs.tsdb.ILogReader;
+import com.ctriposs.tsdb.ISeekIterator;
 import com.ctriposs.tsdb.InternalKey;
 import com.ctriposs.tsdb.common.IFileIterator;
-import com.ctriposs.tsdb.iterator.LevelSeekIterator;
 import com.ctriposs.tsdb.storage.FileMeta;
 import com.ctriposs.tsdb.table.InternalKeyComparator;
 import com.ctriposs.tsdb.table.MapFileLogReader;
+import com.ctriposs.tsdb.table.MemTable;
 import com.ctriposs.tsdb.util.FileUtil;
 
 public class FileManager {
@@ -26,6 +27,7 @@ public class FileManager {
 	private InternalKeyComparator internalKeyComparator;
     private NameManager nameManager;
     private long maxPeriod; 
+    private int levelNum = 1;
     
 	private Comparator<FileMeta> fileMetaComparator = new Comparator<FileMeta>(){
 
@@ -37,26 +39,47 @@ public class FileManager {
 		
 	};
 	
-	private Comparator<LevelSeekIterator> levelIteratorComparator = new Comparator<LevelSeekIterator>(){
+	private Comparator<ISeekIterator> iteratorComparator = new Comparator<ISeekIterator>(){
 
 		@Override
-		public int compare(LevelSeekIterator o1,
-				LevelSeekIterator o2) {
-			
-			return (int) (o1.getLevelNum() - o1.getLevelNum());
+		public int compare(ISeekIterator o1,ISeekIterator o2) {
+			if(o2.priority() == o1.priority()){
+				return 0;
+			}else{
+				if(o2.priority() < o1.priority()){
+					return 1;
+				}else{
+					return -1;
+				}
+			}
 		}
 	};
 	
-	private Comparator<IFileIterator<InternalKey, byte[]>> fileIteratorComparator = new Comparator<IFileIterator<InternalKey, byte[]>>(){
+	private Comparator<IFileIterator> fileIteratorComparator = new Comparator<IFileIterator>(){
 
 		@Override
-		public int compare(IFileIterator<InternalKey, byte[]> o1,
-				IFileIterator<InternalKey, byte[]> o2) {
+		public int compare(IFileIterator o1,IFileIterator o2) {
 			
-			return (int) (o2.priority() - o1.priority());
+			if(o2.priority() == o1.priority()){
+				return 0;
+			}else{
+				if(o2.priority() < o1.priority()){
+					return -1;
+				}else{
+					return 1;
+				}
+			}
 		}
 	};
    
+	private Comparator<MemTable> memTableComparator = new Comparator<MemTable>() {
+
+		@Override
+		public int compare(MemTable o1, MemTable o2) {
+			
+			return (int)(o2.getFileNumber()-o1.getFileNumber());
+		}
+	};
 	
 	
 	public FileManager(String dir,long maxPeriod, InternalKeyComparator internalKeyComparator, NameManager nameManager){
@@ -64,6 +87,14 @@ public class FileManager {
 		this.internalKeyComparator = internalKeyComparator;
 		this.nameManager = nameManager;
 		this.maxPeriod = maxPeriod;
+	}
+	
+	public void setLevel(int levelNum){
+		this.levelNum = levelNum;
+	}
+	
+	public int getLevelNum(){
+		return this.levelNum;
 	}
 	
 	public int compare(InternalKey o1, InternalKey o2){
@@ -79,7 +110,7 @@ public class FileManager {
 	}
 	
 	public long getFileNumber(){
-		return maxFileNumber.incrementAndGet();
+		return maxFileNumber.getAndIncrement();
 	}
 	
 	public void upateFileNumber(long fileNumber){
@@ -126,11 +157,15 @@ public class FileManager {
 		return fileMetaComparator;
 	}
 
-	public Comparator<LevelSeekIterator> getLevelIteratorComparator(){
-		return levelIteratorComparator;
+	public Comparator<ISeekIterator> getIteratorComparator(){
+		return iteratorComparator;
 	}
 	
-	public Comparator<IFileIterator<InternalKey, byte[]>> getFileIteratorComparator(){
+	public Comparator<IFileIterator> getFileIteratorComparator(){
 		return fileIteratorComparator;
+	}
+	
+	public Comparator<MemTable> getMemTableComparator(){
+		return memTableComparator;
 	}
 }

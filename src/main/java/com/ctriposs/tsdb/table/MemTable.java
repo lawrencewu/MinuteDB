@@ -10,6 +10,8 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import com.ctriposs.tsdb.ILogWriter;
 import com.ctriposs.tsdb.InternalKey;
+import com.ctriposs.tsdb.iterator.MemSeekIterator;
+import com.ctriposs.tsdb.manage.FileManager;
 import com.ctriposs.tsdb.storage.CodeItem;
 import com.ctriposs.tsdb.storage.Head;
 import com.ctriposs.tsdb.storage.TimeItem;
@@ -97,6 +99,16 @@ public class MemTable {
 	public ConcurrentHashMap<Long, ConcurrentSkipListMap<InternalKey, byte[]>> getTable(){
 		return this.table;
 	}
+	
+	public ConcurrentSkipListMap<InternalKey, byte[]> getAllConcurrentSkipList(){
+		ConcurrentSkipListMap<InternalKey, byte[]> result = new ConcurrentSkipListMap<InternalKey, byte[]>(internalKeyComparator);
+		
+		for(ConcurrentSkipListMap<InternalKey, byte[]> value:table.values()){
+			result.putAll(value);
+		}
+		
+		return result;
+	}
 
 	public void close() throws IOException{
 		logWriter.close();
@@ -108,5 +120,9 @@ public class MemTable {
 	
 	public long getFileNumber(){
 		return fileNumber;
+	}
+	
+	public MemSeekIterator iterator(FileManager fileManager){
+		return new MemSeekIterator(fileManager, this,-fileNumber);
 	}
 }

@@ -18,7 +18,7 @@ public class NameManager {
 	private Map<String,Short> nameMap = new ConcurrentHashMap<String,Short>();
 	private Map<Short,String> codeMap = new ConcurrentHashMap<Short,String>();
 	private Lock lock = new ReentrantLock();
-	private AtomicInteger maxCode = new AtomicInteger(1);
+	private AtomicInteger maxCode = new AtomicInteger(0);
     private MapFileLogWriter fileWriter;
     private boolean hasData = false;
     private String dir;
@@ -38,11 +38,11 @@ public class NameManager {
 					code = (short) maxCode.incrementAndGet();
 					nameMap.put(name, code);
 					codeMap.put(code, name);  
-					if(fileWriter.getLength() > MemTable.MAX_MEM_SIZE-10000){
+					if(!fileWriter.add(name, code)){
 						fileWriter.close();
-						fileWriter = new MapFileLogWriter( dir, FileName.nameFileName(0),  MemTable.MAX_MEM_SIZE) ;
+						fileWriter = new MapFileLogWriter( dir, FileName.nameFileName(0),  MemTable.MAX_MEM_SIZE) ;	
+						fileWriter.add(name, code);
 					}
-					fileWriter.add(name, code);
 					hasData = true;
 				}
 			} finally {
